@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stock Portfolio Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <style>
         * {
             margin: 0;
@@ -237,6 +235,16 @@
             margin: 20px 0;
         }
 
+        .warning {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid #ff9800;
+            color: #ffcc80;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
         @keyframes pulse {
             0% { opacity: 0.6; }
             50% { opacity: 1; }
@@ -248,7 +256,6 @@
             animation: pulse 1.5s infinite;
         }
 
-        /* Responsive Design */
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
@@ -270,6 +277,11 @@
             <h1>Stock Portfolio Tracker</h1>
             <p class="subtitle">Track your investments in real-time</p>
         </header>
+
+        <div id="warningMessage" class="warning" style="display: none;">
+            <strong>API Key not configured!</strong><br>
+            Please update the API_KEY variable in the code with your AlphaVantage API key.
+        </div>
 
         <div class="portfolio-summary">
             <h2>Portfolio Summary</h2>
@@ -307,57 +319,91 @@
         let loadedStocksCount = 0;
 
         // Load stocks on page load
-        window.onload = function() {
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, starting to load stocks...');
+            if (API_KEY === 'YOUR_API_KEY_HERE') {
+                document.getElementById('warningMessage').style.display = 'block';
+            }
             loadStocks();
-        };
+        });
 
         async function loadStocks() {
             try {
-                // Fetch stocks configuration
+                console.log('Loading stocks configuration from:', STOCKS_CONFIG_URL);
                 const response = await fetch(STOCKS_CONFIG_URL);
+                
                 if (!response.ok) {
-                    throw new Error('Could not load stocks configuration');
+                    throw new Error(`Could not load stocks configuration: ${response.status} ${response.statusText}`);
                 }
                 
-                stocksData = await response.json();
+                const text = await response.text();
+                console.log('Raw response:', text);
+                
+                stocksData = JSON.parse(text);
+                console.log('Loaded stocks data:', stocksData);
+                
+                if (!Array.isArray(stocksData) || stocksData.length === 0) {
+                    throw new Error('Invalid stocks data format or empty array');
+                }
                 
                 // Load each stock's data
-                for (const stock of stocksData) {
-                    loadStockData(stock);
+                for (let i = 0; i < stocksData.length; i++) {
+                    setTimeout(() => {
+                        loadStockData(stocksData[i]);
+                    }, i * 1500); // Delay to avoid API rate limits
                 }
             } catch (error) {
                 console.error('Error loading stocks:', error);
-                alert('Error loading stocks configuration. Make sure stocks.json exists in your repository.');
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.innerHTML = `
+                    <strong>Error loading stocks configuration</strong><br>
+                    ${error.message}<br><br>
+                    Make sure stocks.json exists in your repository and is properly formatted.
+                `;
+                document.getElementById('stocksGrid').appendChild(errorDiv);
             }
         }
 
         async function loadStockData(stockConfig) {
+            console.log('Loading stock data for:', stockConfig.symbol);
             const stockCard = createStockCard(stockConfig);
             document.getElementById('stocksGrid').appendChild(stockCard);
             
+            if (API_KEY === 'YOUR_API_KEY_HERE') {
+                const errorDiv = stockCard.querySelector('.loading');
+                if (errorDiv) {
+                    errorDiv.className = 'error';
+                    errorDiv.textContent = 'Please configure your API key';
+                }
+                return;
+            }
+            
             try {
-                // Fetch daily time series data
                 const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${stockConfig.symbol}&apikey=${API_KEY}`;
+                console.log('Fetching from URL:', url);
+                
                 const response = await fetch(url);
                 const data = await response.json();
+                console.log(`Response for ${stockConfig.symbol}:`, data);
                 
-                if (data['Error Message'] || data['Note']) {
-                    throw new Error(data['Error Message'] || 'API limit reached. Please try again later.');
+                if (data['Error Message']) {
+                    throw new Error(data['Error Message']);
+                }
+                
+                if (data['Note']) {
+                    throw new Error('API call frequency limit reached. Please wait and try again.');
                 }
                 
                 const timeSeries = data['Time Series (Daily)'];
-                if (!timeSeries) {
+                if (!timeSeries || Object.keys(timeSeries).length === 0) {
                     throw new Error('No data available for this stock');
                 }
                 
-                // Process and display the data
                 updateStockCard(stockConfig, timeSeries);
                 createChart(stockConfig, timeSeries);
                 
-                // Increment loaded stocks counter
                 loadedStocksCount++;
-                
-                // Update portfolio summary when all stocks are loaded
                 if (loadedStocksCount === stocksData.length) {
                     updatePortfolioSummary();
                 }
@@ -448,22 +494,18 @@
             const latestDate = dates[dates.length - 1];
             const currentPrice = parseFloat(timeSeries[latestDate]['4. close']);
             
-            // Calculate gain/loss - ensure shares is defined, default to 1 if not
             const shares = stockConfig.shares || 1;
             const isSold = stockConfig.sellPrice && stockConfig.sellPrice !== 0;
             
             let gainLoss, percentChange;
             
             if (isSold) {
-                // If sold, show realized gain/loss
                 gainLoss = (stockConfig.sellPrice - stockConfig.buyPrice) * shares;
                 percentChange = ((stockConfig.sellPrice - stockConfig.buyPrice) / stockConfig.buyPrice) * 100;
                 
-                // Calculate missed opportunity
                 const missedGainLoss = (currentPrice - stockConfig.sellPrice) * shares;
                 const currentVsSellPercent = ((currentPrice - stockConfig.sellPrice) / stockConfig.sellPrice) * 100;
                 
-                // Update missed opportunity fields
                 const missedElement = document.getElementById(`missed-${stockConfig.symbol}`);
                 if (missedElement) {
                     missedElement.textContent = `${missedGainLoss >= 0 ? '+' : ''}$${Math.abs(missedGainLoss).toFixed(2)}`;
@@ -476,15 +518,12 @@
                     currentVsSellElement.className = currentVsSellPercent >= 0 ? 'detail-value negative' : 'detail-value positive';
                 }
                 
-                // Store missed opportunity for portfolio summary
                 stockConfig.missedGainLoss = missedGainLoss;
             } else {
-                // If not sold, show unrealized gain/loss
                 gainLoss = (currentPrice - stockConfig.buyPrice) * shares;
                 percentChange = ((currentPrice - stockConfig.buyPrice) / stockConfig.buyPrice) * 100;
             }
             
-            // Update card values
             const priceElement = document.getElementById(`price-${stockConfig.symbol}`);
             if (priceElement) {
                 priceElement.textContent = `$${currentPrice.toFixed(2)}`;
@@ -502,7 +541,6 @@
                 percentElement.className = percentChange >= 0 ? 'detail-value positive' : 'detail-value negative';
             }
             
-            // Store data for portfolio summary
             stockConfig.currentPrice = currentPrice;
             stockConfig.gainLoss = gainLoss;
             stockConfig.percentChange = percentChange;
@@ -514,47 +552,27 @@
             
             const ctx = canvas.getContext('2d');
             
-            // Remove loading indicator
             const loadingDiv = document.querySelector(`#stock-${stockConfig.symbol} .loading`);
             if (loadingDiv) loadingDiv.remove();
             
-            // Prepare data for chart
             const dates = Object.keys(timeSeries).sort();
             const prices = dates.map(date => ({
-                x: new Date(date),
+                x: date,
                 y: parseFloat(timeSeries[date]['4. close'])
             }));
             
-            // Find the closest date to buy date for marker
             const buyDate = new Date(stockConfig.buyDate);
-            let closestDate = dates[0];
+            let closestDateIndex = 0;
             let minDiff = Math.abs(new Date(dates[0]) - buyDate);
             
-            dates.forEach(date => {
+            dates.forEach((date, index) => {
                 const diff = Math.abs(new Date(date) - buyDate);
                 if (diff < minDiff) {
                     minDiff = diff;
-                    closestDate = date;
+                    closestDateIndex = index;
                 }
             });
             
-            // Find closest date to sell date if stock was sold
-            let sellClosestDate = null;
-            if (stockConfig.sellPrice && stockConfig.sellPrice !== 0 && stockConfig.sellDate) {
-                const sellDate = new Date(stockConfig.sellDate);
-                sellClosestDate = dates[0];
-                let sellMinDiff = Math.abs(new Date(dates[0]) - sellDate);
-                
-                dates.forEach(date => {
-                    const diff = Math.abs(new Date(date) - sellDate);
-                    if (diff < sellMinDiff) {
-                        sellMinDiff = diff;
-                        sellClosestDate = date;
-                    }
-                });
-            }
-            
-            // Prepare datasets
             const datasets = [{
                 label: 'Price',
                 data: prices,
@@ -564,41 +582,60 @@
                 pointRadius: 0,
                 pointHoverRadius: 5,
                 tension: 0.1
-            }, {
-                label: 'Buy Point',
-                data: [{
-                    x: new Date(closestDate),
-                    y: stockConfig.buyPrice
-                }],
-                borderColor: '#4caf50',
-                backgroundColor: '#4caf50',
-                pointRadius: 8,
-                pointStyle: 'triangle',
-                showLine: false
             }];
             
+            // Add buy point annotation
+            // Add buy point annotation
+            const annotations = {
+                buyPoint: {
+                    type: 'point',
+                    xValue: dates[closestDateIndex],
+                    yValue: stockConfig.buyPrice,
+                    backgroundColor: '#4caf50',
+                    borderColor: '#4caf50',
+                    radius: 8,
+                    pointStyle: 'triangle',
+                    label: {
+                        content: 'Buy',
+                        enabled: true,
+                        position: 'top'
+                    }
+                }
+            };
+            
             // Add sell point if stock was sold
-            if (sellClosestDate) {
-                datasets.push({
-                    label: 'Sell Point',
-                    data: [{
-                        x: new Date(sellClosestDate),
-                        y: stockConfig.sellPrice
-                    }],
-                    borderColor: '#ff9800',
-                    backgroundColor: '#ff9800',
-                    pointRadius: 8,
-                    pointStyle: 'rectRot',
-                    showLine: false
+            if (stockConfig.sellPrice && stockConfig.sellPrice !== 0 && stockConfig.sellDate) {
+                const sellDate = new Date(stockConfig.sellDate);
+                let sellClosestDateIndex = 0;
+                let sellMinDiff = Math.abs(new Date(dates[0]) - sellDate);
+                
+                dates.forEach((date, index) => {
+                    const diff = Math.abs(new Date(date) - sellDate);
+                    if (diff < sellMinDiff) {
+                        sellMinDiff = diff;
+                        sellClosestDateIndex = index;
+                    }
                 });
+                
+                annotations.sellPoint = {
+                    type: 'point',
+                    xValue: dates[sellClosestDateIndex],
+                    yValue: stockConfig.sellPrice,
+                    backgroundColor: '#ff9800',
+                    borderColor: '#ff9800',
+                    radius: 8,
+                    pointStyle: 'rectRot',
+                    label: {
+                        content: 'Sell',
+                        enabled: true,
+                        position: 'top'
+                    }
+                };
             }
             
-            // Create chart
             charts[stockConfig.symbol] = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    datasets: datasets
-                },
+                data: { datasets: datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -607,9 +644,7 @@
                         mode: 'index'
                     },
                     plugins: {
-                        legend: {
-                            display: false
-                        },
+                        legend: { display: false },
                         tooltip: {
                             backgroundColor: 'rgba(0, 0, 0, 0.8)',
                             titleColor: '#fff',
@@ -620,28 +655,28 @@
                             displayColors: false,
                             callbacks: {
                                 label: function(context) {
-                                    if (context.dataset.label === 'Buy Point') {
-                                        return `Buy Price: $${context.parsed.y.toFixed(2)}`;
-                                    } else if (context.dataset.label === 'Sell Point') {
-                                        return `Sell Price: $${context.parsed.y.toFixed(2)}`;
-                                    }
-                                    return `Price: $${context.parsed.y.toFixed(2)}`;
+                                    return `Price: ${context.parsed.y.toFixed(2)}`;
                                 }
                             }
+                        },
+                        annotation: {
+                            annotations: annotations
                         }
                     },
                     scales: {
                         x: {
-                            type: 'time',
-                            time: {
-                                unit: 'month'
-                            },
+                            type: 'category',
                             grid: {
                                 color: 'rgba(255, 255, 255, 0.1)',
                                 drawBorder: false
                             },
                             ticks: {
-                                color: '#8099c1'
+                                color: '#8099c1',
+                                maxTicksLimit: 6,
+                                callback: function(value, index) {
+                                    const date = new Date(this.getLabelForValue(value));
+                                    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                                }
                             }
                         },
                         y: {
@@ -653,7 +688,7 @@
                                 color: '#8099c1',
                                 callback: function(value) {
                                     return '
-                                 + value.toFixed(0);
+                 + value.toFixed(0);
                                 }
                             }
                         }
@@ -674,14 +709,12 @@
                     const isSold = stock.sellPrice && stock.sellPrice !== 0;
                     
                     if (isSold) {
-                        // For sold stocks, use sell price for invested amount calculation
                         totalValue += stock.sellPrice * shares;
                         totalInvested += stock.buyPrice * shares;
                         if (stock.missedGainLoss) {
                             totalMissedGains += stock.missedGainLoss;
                         }
                     } else {
-                        // For held stocks, use current price
                         totalValue += stock.currentPrice * shares;
                         totalInvested += stock.buyPrice * shares;
                     }

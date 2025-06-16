@@ -3,24 +3,32 @@
         "symbol": "AAPL",
         "buyPrice": 150.00,
         "buyDate": "2024-01-15",
-        "shares": 10
+        "shares": 10,
+        "sellPrice": 0,
+        "sellDate": ""
     },
     {
         "symbol": "MSFT",
         "buyPrice": 320.50,
         "buyDate": "2024-02-20",
-        "shares": 5
+        "shares": 5,
+        "sellPrice": 380.00,
+        "sellDate": "2024-11-15"
     },
     {
         "symbol": "GOOGL",
         "buyPrice": 140.25,
         "buyDate": "2024-03-10",
-        "shares": 8
+        "shares": 8,
+        "sellPrice": 0,
+        "sellDate": ""
     },
     {
         "symbol": "AMZN",
         "buyPrice": 170.00,
         "buyDate": "2024-01-30",
-        "shares": 6
+        "shares": 6,
+        "sellPrice": 190.50,
+        "sellDate": "2024-10-20"
     }
 ]

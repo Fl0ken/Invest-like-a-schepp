@@ -53,83 +53,6 @@
             margin-top: 10px;
         }
 
-        .api-key-section {
-            background: #1a1f3a;
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 40px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-            border: 1px solid #2a3f5f;
-        }
-
-        .api-key-section h2 {
-            color: #64b5f6;
-            margin-bottom: 20px;
-            font-size: 1.5em;
-        }
-
-        .api-input-group {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        input[type="text"] {
-            flex: 1;
-            min-width: 300px;
-            padding: 12px 20px;
-            background: #0a0e27;
-            border: 2px solid #2a3f5f;
-            border-radius: 8px;
-            color: #e0e0e0;
-            font-size: 16px;
-            transition: all 0.3s ease;
-        }
-
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #64b5f6;
-            box-shadow: 0 0 0 3px rgba(100, 181, 246, 0.1);
-        }
-
-        button {
-            padding: 12px 30px;
-            background: linear-gradient(135deg, #64b5f6, #1976d2);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(100, 181, 246, 0.4);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        .info-message {
-            margin-top: 15px;
-            padding: 15px;
-            background: rgba(100, 181, 246, 0.1);
-            border-left: 4px solid #64b5f6;
-            border-radius: 8px;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .portfolio-section {
-            display: none;
-        }
-
         .portfolio-summary {
             background: #1a1f3a;
             border-radius: 15px;
@@ -317,14 +240,6 @@
             .stocks-grid {
                 grid-template-columns: 1fr;
             }
-
-            .api-input-group {
-                flex-direction: column;
-            }
-
-            input[type="text"] {
-                min-width: 100%;
-            }
         }
     </style>
 </head>
@@ -335,71 +250,44 @@
             <p class="subtitle">Track your investments in real-time</p>
         </header>
 
-        <div class="api-key-section">
-            <h2>API Configuration</h2>
-            <div class="api-input-group">
-                <input type="text" id="apiKey" placeholder="Enter your AlphaVantage API key">
-                <button onclick="saveApiKey()">Save API Key</button>
-            </div>
-            <div class="info-message">
-                Get your free API key from <a href="https://www.alphavantage.co/support/#api-key" target="_blank" style="color: #64b5f6;">AlphaVantage</a>. 
-                The key is stored locally in your browser.
+        <div class="portfolio-summary">
+            <h2>Portfolio Summary</h2>
+            <div class="summary-stats">
+                <div class="stat-card">
+                    <div class="stat-label">Total Value</div>
+                    <div class="stat-value" id="totalValue">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Gain/Loss</div>
+                    <div class="stat-value" id="totalGainLoss">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Percent Change</div>
+                    <div class="stat-value" id="percentChange">0.00%</div>
+                </div>
             </div>
         </div>
 
-        <div class="portfolio-section" id="portfolioSection">
-            <div class="portfolio-summary">
-                <h2>Portfolio Summary</h2>
-                <div class="summary-stats">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Value</div>
-                        <div class="stat-value" id="totalValue">$0.00</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Total Gain/Loss</div>
-                        <div class="stat-value" id="totalGainLoss">$0.00</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Percent Change</div>
-                        <div class="stat-value" id="percentChange">0.00%</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="stocks-grid" id="stocksGrid">
-                <!-- Stock cards will be dynamically inserted here -->
-            </div>
+        <div class="stocks-grid" id="stocksGrid">
+            <!-- Stock cards will be dynamically inserted here -->
         </div>
     </div>
 
     <script>
+        // HARDCODED API KEY - Replace with your AlphaVantage API key
+        const API_KEY = 'YOUR_API_KEY_HERE';
+        
         // Configuration file URL - Update this to your GitHub repository
         const STOCKS_CONFIG_URL = 'stocks.json';
         
-        let apiKey = localStorage.getItem('alphaVantageApiKey');
         let stocksData = [];
-        let charts = {};
+        const charts = {};
+        let loadedStocksCount = 0;
 
-        // Check if API key exists on load
+        // Load stocks on page load
         window.onload = function() {
-            if (apiKey) {
-                document.getElementById('apiKey').value = apiKey;
-                loadStocks();
-            }
-        };
-
-        function saveApiKey() {
-            const keyInput = document.getElementById('apiKey');
-            apiKey = keyInput.value.trim();
-            
-            if (!apiKey) {
-                alert('Please enter an API key');
-                return;
-            }
-            
-            localStorage.setItem('alphaVantageApiKey', apiKey);
             loadStocks();
-        }
+        };
 
         async function loadStocks() {
             try {
@@ -410,7 +298,6 @@
                 }
                 
                 stocksData = await response.json();
-                document.getElementById('portfolioSection').style.display = 'block';
                 
                 // Load each stock's data
                 for (const stock of stocksData) {
@@ -428,7 +315,7 @@
             
             try {
                 // Fetch daily time series data
-                const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${stockConfig.symbol}&apikey=${apiKey}`;
+                const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${stockConfig.symbol}&apikey=${API_KEY}`;
                 const response = await fetch(url);
                 const data = await response.json();
                 
@@ -445,11 +332,21 @@
                 updateStockCard(stockConfig, timeSeries);
                 createChart(stockConfig, timeSeries);
                 
+                // Increment loaded stocks counter
+                loadedStocksCount++;
+                
+                // Update portfolio summary when all stocks are loaded
+                if (loadedStocksCount === stocksData.length) {
+                    updatePortfolioSummary();
+                }
+                
             } catch (error) {
                 console.error(`Error loading ${stockConfig.symbol}:`, error);
                 const errorDiv = stockCard.querySelector('.loading');
-                errorDiv.className = 'error';
-                errorDiv.textContent = `Error: ${error.message}`;
+                if (errorDiv) {
+                    errorDiv.className = 'error';
+                    errorDiv.textContent = `Error: ${error.message}`;
+                }
             }
         }
 
@@ -466,7 +363,7 @@
                 <div class="stock-details">
                     <div class="detail-item">
                         <div class="detail-label">Buy Price</div>
-                        <div class="detail-value">${stockConfig.buyPrice.toFixed(2)}</div>
+                        <div class="detail-value">$${stockConfig.buyPrice.toFixed(2)}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Buy Date</div>
@@ -495,30 +392,40 @@
             const latestDate = dates[dates.length - 1];
             const currentPrice = parseFloat(timeSeries[latestDate]['4. close']);
             
-            const gainLoss = (currentPrice - stockConfig.buyPrice) * stockConfig.shares;
+            // Calculate gain/loss - ensure shares is defined, default to 1 if not
+            const shares = stockConfig.shares || 1;
+            const gainLoss = (currentPrice - stockConfig.buyPrice) * shares;
             const percentChange = ((currentPrice - stockConfig.buyPrice) / stockConfig.buyPrice) * 100;
             
             // Update card values
-            document.getElementById(`price-${stockConfig.symbol}`).textContent = `${currentPrice.toFixed(2)}`;
+            const priceElement = document.getElementById(`price-${stockConfig.symbol}`);
+            if (priceElement) {
+                priceElement.textContent = `$${currentPrice.toFixed(2)}`;
+            }
             
             const gainLossElement = document.getElementById(`gainloss-${stockConfig.symbol}`);
-            gainLossElement.textContent = `${Math.abs(gainLoss).toFixed(2)}`;
-            gainLossElement.className = gainLoss >= 0 ? 'detail-value positive' : 'detail-value negative';
+            if (gainLossElement) {
+                gainLossElement.textContent = `${gainLoss >= 0 ? '+' : ''}$${Math.abs(gainLoss).toFixed(2)}`;
+                gainLossElement.className = gainLoss >= 0 ? 'detail-value positive' : 'detail-value negative';
+            }
             
             const percentElement = document.getElementById(`percent-${stockConfig.symbol}`);
-            percentElement.textContent = `${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}%`;
-            percentElement.className = percentChange >= 0 ? 'detail-value positive' : 'detail-value negative';
+            if (percentElement) {
+                percentElement.textContent = `${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}%`;
+                percentElement.className = percentChange >= 0 ? 'detail-value positive' : 'detail-value negative';
+            }
             
             // Store data for portfolio summary
             stockConfig.currentPrice = currentPrice;
             stockConfig.gainLoss = gainLoss;
             stockConfig.percentChange = percentChange;
-            
-            updatePortfolioSummary();
         }
 
         function createChart(stockConfig, timeSeries) {
-            const ctx = document.getElementById(`chart-${stockConfig.symbol}`).getContext('2d');
+            const canvas = document.getElementById(`chart-${stockConfig.symbol}`);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
             
             // Remove loading indicator
             const loadingDiv = document.querySelector(`#stock-${stockConfig.symbol} .loading`);
@@ -592,9 +499,9 @@
                             callbacks: {
                                 label: function(context) {
                                     if (context.dataset.label === 'Buy Point') {
-                                        return `Buy Price: ${context.parsed.y.toFixed(2)}`;
+                                        return `Buy Price: $${context.parsed.y.toFixed(2)}`;
                                     }
-                                    return `Price: ${context.parsed.y.toFixed(2)}`;
+                                    return `Price: $${context.parsed.y.toFixed(2)}`;
                                 }
                             }
                         }
@@ -621,7 +528,7 @@
                             ticks: {
                                 color: '#8099c1',
                                 callback: function(value) {
-                                    return ' + value.toFixed(0);
+                                    return '$' + value.toFixed(0);
                                 }
                             }
                         }
@@ -637,23 +544,31 @@
             
             stocksData.forEach(stock => {
                 if (stock.currentPrice) {
-                    totalValue += stock.currentPrice * stock.shares;
+                    const shares = stock.shares || 1;
+                    totalValue += stock.currentPrice * shares;
                     totalGainLoss += stock.gainLoss;
-                    totalInvested += stock.buyPrice * stock.shares;
+                    totalInvested += stock.buyPrice * shares;
                 }
             });
             
             const totalPercentChange = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
             
-            document.getElementById('totalValue').textContent = `${totalValue.toFixed(2)}`;
+            const totalValueElement = document.getElementById('totalValue');
+            if (totalValueElement) {
+                totalValueElement.textContent = `$${totalValue.toFixed(2)}`;
+            }
             
             const totalGainLossElement = document.getElementById('totalGainLoss');
-            totalGainLossElement.textContent = `${totalGainLoss >= 0 ? '+' : ''}${Math.abs(totalGainLoss).toFixed(2)}`;
-            totalGainLossElement.className = totalGainLoss >= 0 ? 'stat-value positive' : 'stat-value negative';
+            if (totalGainLossElement) {
+                totalGainLossElement.textContent = `${totalGainLoss >= 0 ? '+' : ''}$${Math.abs(totalGainLoss).toFixed(2)}`;
+                totalGainLossElement.className = totalGainLoss >= 0 ? 'stat-value positive' : 'stat-value negative';
+            }
             
             const percentChangeElement = document.getElementById('percentChange');
-            percentChangeElement.textContent = `${totalPercentChange >= 0 ? '+' : ''}${totalPercentChange.toFixed(2)}%`;
-            percentChangeElement.className = totalPercentChange >= 0 ? 'stat-value positive' : 'stat-value negative';
+            if (percentChangeElement) {
+                percentChangeElement.textContent = `${totalPercentChange >= 0 ? '+' : ''}${totalPercentChange.toFixed(2)}%`;
+                percentChangeElement.className = totalPercentChange >= 0 ? 'stat-value positive' : 'stat-value negative';
+            }
         }
     </script>
 </body>

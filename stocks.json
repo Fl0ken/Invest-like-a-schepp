@@ -12,13 +12,13 @@
         "buyPrice": 320.50,
         "buyDate": "2024-02-20",
         "shares": 5,
-        "sellPrice": 380.00,
-        "sellDate": "2024-11-15"
+        "sellPrice": 412.00,
+        "sellDate": "2025-02-10"
     },
     {
         "symbol": "GOOGL",
         "buyPrice": 140.25,
-        "buyDate": "2024-03-10",
+        "buyDate": "2025-03-10",
         "shares": 8,
         "sellPrice": 0,
         "sellDate": ""
